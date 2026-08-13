@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent.executor import CommandExecutor
+from agent.trajectory import TrajectoryLogger
 from agent.workspace import WorkspaceManager
 
 
@@ -21,9 +22,14 @@ class AgentResult:
 class CodingAgent:
     """A minimal coding agent that can inspect, edit, and test code."""
 
-    def __init__(self, workspace: str | Path) -> None:
+    def __init__(
+        self,
+        workspace: str | Path,
+        task_id: str = "unknown_task",
+    ) -> None:
         self.workspace = WorkspaceManager(workspace)
         self.executor = CommandExecutor(workspace)
+        self.trajectory = TrajectoryLogger(task_id)
 
     def inspect_file(self, relative_path: str) -> str:
         """Read a file from the workspace."""
@@ -72,32 +78,68 @@ class CodingAgent:
         return result.success
 
     def solve(
-        self,
-        target_file: str,
-        max_iterations: int = 3,
-    ) -> AgentResult:
-        """Attempt to repair the task until tests pass."""
+    self,
+    target_file: str,
+    max_iterations: int = 3,
+) -> AgentResult:
+    """Attempt to repair the task until tests pass."""
 
-        for iteration in range(1, max_iterations + 1):
+    for iteration in range(1, max_iterations + 1):
 
-            if self.run_tests():
-                return AgentResult(
-                    success=True,
-                    iterations=iteration - 1,
-                    message="Tests already pass.",
-                )
+        tests_passed = self.run_tests()
 
-            self.repair_subtract_bug(target_file)
-
-            if self.run_tests():
-                return AgentResult(
-                    success=True,
-                    iterations=iteration,
-                    message="Repair succeeded.",
-                )
-
-        return AgentResult(
-            success=False,
-            iterations=max_iterations,
-            message="Repair budget exhausted.",
+        self.trajectory.add_step(
+            iteration=iteration,
+            action="run_tests_before_repair",
+            target_file=target_file,
+            success=tests_passed,
+            observation=(
+                "Tests passed before repair."
+                if tests_passed
+                else "Tests failed before repair."
+            ),
         )
+
+        if tests_passed:
+            return AgentResult(
+                success=True,
+                iterations=iteration - 1,
+                message="Tests already pass.",
+            )
+
+        self.repair_subtract_bug(target_file)
+
+        self.trajectory.add_step(
+            iteration=iteration,
+            action="repair_file",
+            target_file=target_file,
+            success=True,
+            observation="Applied subtraction repair.",
+        )
+
+        tests_passed = self.run_tests()
+
+        self.trajectory.add_step(
+            iteration=iteration,
+            action="run_tests_after_repair",
+            target_file=target_file,
+            success=tests_passed,
+            observation=(
+                "Tests passed after repair."
+                if tests_passed
+                else "Tests still failed after repair."
+            ),
+        )
+
+        if tests_passed:
+            return AgentResult(
+                success=True,
+                iterations=iteration,
+                message="Repair succeeded.",
+            )
+
+    return AgentResult(
+        success=False,
+        iterations=max_iterations,
+        message="Repair budget exhausted.",
+    )
