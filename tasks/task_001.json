@@ -1,0 +1,14 @@
+{
+  "task_id": "task_001",
+  "title": "Fix calculator subtraction",
+  "description": "Fix the subtract function so that it returns the difference between two numbers.",
+  "workspace": "workspace",
+  "target_file": "calculator.py",
+  "test_command": [
+    "python",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "max_iterations": 3
+}
