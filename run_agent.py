@@ -8,37 +8,46 @@ from pathlib import Path
 from agent.coding_agent import CodingAgent
 
 
-def load_task(task_path: str | Path) -> dict:
-    """Load a coding task from JSON."""
-
-    path = Path(task_path)
-
-    with path.open("r", encoding="utf-8") as file:
-        return json.load(file)
-
-
 def main() -> None:
-    """Run the first coding-agent task."""
+    """Load a task, run the agent, and save its trajectory."""
 
-    task = load_task("tasks/task_001.json")
+    repo_root = Path(__file__).parent.resolve()
+
+    task_path = repo_root / "tasks" / "task_001.json"
+
+    task = json.loads(
+        task_path.read_text(encoding="utf-8")
+    )
 
     print(f"Task: {task['title']}")
     print(f"Description: {task['description']}")
     print(f"Target: {task['target_file']}")
-    print()
 
-    agent = CodingAgent(task["workspace"])
+    workspace_path = repo_root / task["workspace"]
+
+    agent = CodingAgent(
+        workspace=workspace_path,
+        task_id=task["task_id"],
+    )
 
     result = agent.solve(
         target_file=task["target_file"],
         max_iterations=task["max_iterations"],
     )
 
-    print()
-    print("=== Agent Result ===")
+    output_path = (
+        repo_root
+        / "outputs"
+        / f"{task['task_id']}_trajectory.json"
+    )
+
+    agent.trajectory.save(output_path)
+
+    print("\n=== Agent Result ===")
     print(f"Success: {result.success}")
     print(f"Iterations: {result.iterations}")
     print(f"Message: {result.message}")
+    print(f"Trajectory: {output_path}")
 
 
 if __name__ == "__main__":
