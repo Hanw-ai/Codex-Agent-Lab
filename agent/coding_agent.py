@@ -82,64 +82,64 @@ class CodingAgent:
     target_file: str,
     max_iterations: int = 3,
 ) -> AgentResult:
-    """Attempt to repair the task until tests pass."""
-
-    for iteration in range(1, max_iterations + 1):
-
-        tests_passed = self.run_tests()
-
-        self.trajectory.add_step(
-            iteration=iteration,
-            action="run_tests_before_repair",
-            target_file=target_file,
-            success=tests_passed,
-            observation=(
-                "Tests passed before repair."
-                if tests_passed
-                else "Tests failed before repair."
-            ),
-        )
-
-        if tests_passed:
-            return AgentResult(
-                success=True,
-                iterations=iteration - 1,
-                message="Tests already pass.",
+        """Attempt to repair the task until tests pass."""
+    
+        for iteration in range(1, max_iterations + 1):
+    
+            tests_passed = self.run_tests()
+    
+            self.trajectory.add_step(
+                iteration=iteration,
+                action="run_tests_before_repair",
+                target_file=target_file,
+                success=tests_passed,
+                observation=(
+                    "Tests passed before repair."
+                    if tests_passed
+                    else "Tests failed before repair."
+                ),
             )
-
-        self.repair_subtract_bug(target_file)
-
-        self.trajectory.add_step(
-            iteration=iteration,
-            action="repair_file",
-            target_file=target_file,
-            success=True,
-            observation="Applied subtraction repair.",
-        )
-
-        tests_passed = self.run_tests()
-
-        self.trajectory.add_step(
-            iteration=iteration,
-            action="run_tests_after_repair",
-            target_file=target_file,
-            success=tests_passed,
-            observation=(
-                "Tests passed after repair."
-                if tests_passed
-                else "Tests still failed after repair."
-            ),
-        )
-
-        if tests_passed:
-            return AgentResult(
+    
+            if tests_passed:
+                return AgentResult(
+                    success=True,
+                    iterations=iteration - 1,
+                    message="Tests already pass.",
+                )
+    
+            self.repair_subtract_bug(target_file)
+    
+            self.trajectory.add_step(
+                iteration=iteration,
+                action="repair_file",
+                target_file=target_file,
                 success=True,
-                iterations=iteration,
-                message="Repair succeeded.",
+                observation="Applied subtraction repair.",
             )
-
-    return AgentResult(
-        success=False,
-        iterations=max_iterations,
-        message="Repair budget exhausted.",
-    )
+    
+            tests_passed = self.run_tests()
+    
+            self.trajectory.add_step(
+                iteration=iteration,
+                action="run_tests_after_repair",
+                target_file=target_file,
+                success=tests_passed,
+                observation=(
+                    "Tests passed after repair."
+                    if tests_passed
+                    else "Tests still failed after repair."
+                ),
+            )
+    
+            if tests_passed:
+                return AgentResult(
+                    success=True,
+                    iterations=iteration,
+                    message="Repair succeeded.",
+                )
+    
+        return AgentResult(
+            success=False,
+            iterations=max_iterations,
+            message="Repair budget exhausted.",
+        )
