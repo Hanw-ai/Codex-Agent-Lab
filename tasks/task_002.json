@@ -1,0 +1,14 @@
+{
+  "task_id": "task_002",
+  "title": "Fix username normalization",
+  "description": "Fix the normalize_username function so that it removes surrounding whitespace and converts the username to lowercase.",
+  "workspace": "workspace",
+  "target_file": "username.py",
+  "test_command": [
+    "python",
+    "-m",
+    "pytest",
+    "-q"
+  ],
+  "max_iterations": 3
+}
