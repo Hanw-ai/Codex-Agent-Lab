@@ -114,7 +114,7 @@ class CodingAgent:
                 action="repair_file",
                 target_file=target_file,
                 success=True,
-                observation="Applied subtraction repair.",
+                observation=f"Applied repair to {target_file}.",
             )
     
             tests_passed = self.run_tests()
