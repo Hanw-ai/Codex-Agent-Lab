@@ -26,10 +26,17 @@ class CodingAgent:
         self,
         workspace: str | Path,
         task_id: str = "unknown_task",
+        test_command: list[str] | None = None,
     ) -> None:
         self.workspace = WorkspaceManager(workspace)
         self.executor = CommandExecutor(workspace)
         self.trajectory = TrajectoryLogger(task_id)
+        self.test_command = test_command or [
+            "python",
+            "-m",
+            "pytest",
+            "-q",
+        ]
 
     def inspect_file(self, relative_path: str) -> str:
         """Read a file from the workspace."""
@@ -63,11 +70,58 @@ class CodingAgent:
             updated,
         )
 
+    def repair_username_normalization(
+        self,
+        relative_path: str,
+    ) -> None:
+        """Repair username normalization logic."""
+
+        content = self.workspace.read_file(relative_path)
+
+        old = """def normalize_username(username: str) -> str:
+    \"\"\"Normalize a username for consistent storage.\"\"\"
+
+    return username
+"""
+
+        new = """def normalize_username(username: str) -> str:
+    \"\"\"Normalize a username for consistent storage.\"\"\"
+
+    return username.strip().lower()
+"""
+
+        if old not in content:
+            raise ValueError(
+                "Expected buggy username implementation was not found."
+            )
+
+        updated = content.replace(old, new)
+
+        self.workspace.write_file(
+            relative_path,
+            updated,
+        )
+
+    def repair_file(self, relative_path: str) -> None:
+        """Select a repair strategy for the target file."""
+
+        if relative_path == "calculator.py":
+            self.repair_subtract_bug(relative_path)
+            return
+
+        if relative_path == "username.py":
+            self.repair_username_normalization(relative_path)
+            return
+
+        raise ValueError(
+            f"No repair strategy available for: {relative_path}"
+        )
+
     def run_tests(self) -> bool:
         """Run pytest inside the workspace."""
 
         result = self.executor.run(
-            ["python", "-m", "pytest", "-q"]
+            self.test_command
         )
 
         print(result.stdout)
@@ -107,7 +161,7 @@ class CodingAgent:
                     message="Tests already pass.",
                 )
     
-            self.repair_subtract_bug(target_file)
+            self.repair_file(target_file)
     
             self.trajectory.add_step(
                 iteration=iteration,

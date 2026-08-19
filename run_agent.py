@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from agent.coding_agent import CodingAgent
@@ -13,7 +14,15 @@ def main() -> None:
 
     repo_root = Path(__file__).parent.resolve()
 
-    task_path = repo_root / "tasks" / "task_001.json"
+    if len(sys.argv) > 1:
+        task_path = repo_root / sys.argv[1]
+    else:
+        task_path = repo_root / "tasks" / "task_001.json"
+
+    if not task_path.exists():
+        raise FileNotFoundError(
+            f"Task file does not exist: {task_path}"
+        )
 
     task = json.loads(
         task_path.read_text(encoding="utf-8")
@@ -28,6 +37,7 @@ def main() -> None:
     agent = CodingAgent(
         workspace=workspace_path,
         task_id=task["task_id"],
+        test_command=task["test_command"],
     )
 
     result = agent.solve(

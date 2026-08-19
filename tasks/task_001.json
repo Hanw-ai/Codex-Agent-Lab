@@ -5,10 +5,11 @@
   "workspace": "workspace",
   "target_file": "calculator.py",
   "test_command": [
-    "python",
-    "-m",
-    "pytest",
-    "-q"
-  ],
+  "python",
+  "-m",
+  "pytest",
+  "test_calculator.py",
+  "-q"
+],
   "max_iterations": 3
 }
