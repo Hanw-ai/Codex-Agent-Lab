@@ -10,6 +10,16 @@ jobs:
   agent-e2e:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        include:
+          - task_id: task_001
+            task_file: tasks/task_001.json
+            test_file: test_calculator.py
+          - task_id: task_002
+            task_file: tasks/task_002.json
+            test_file: test_username.py
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,7 +35,7 @@ jobs:
       - name: Verify buggy baseline
         working-directory: workspace
         run: |
-          if python -m pytest -q; then
+          if python -m pytest ${{ matrix.test_file }} -q; then
             echo "Expected the baseline task to fail, but it passed."
             exit 1
           else
@@ -33,25 +43,29 @@ jobs:
           fi
 
       - name: Run coding agent
-        run: python run_agent.py
+        run: python run_agent.py ${{ matrix.task_file }}
 
       - name: Verify repaired workspace
         working-directory: workspace
-        run: python -m pytest -q
+        run: python -m pytest ${{ matrix.test_file }} -q
 
       - name: Verify trajectory artifact
+        env:
+          TASK_ID: ${{ matrix.task_id }}
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
-          path = Path("outputs/task_001_trajectory.json")
+          task_id = os.environ["TASK_ID"]
+          path = Path(f"outputs/{task_id}_trajectory.json")
 
-          assert path.exists(), "Trajectory artifact was not generated."
+          assert path.exists(), f"Trajectory artifact was not generated: {path}"
 
           data = json.loads(path.read_text(encoding="utf-8"))
 
-          assert data["task_id"] == "task_001"
+          assert data["task_id"] == task_id
 
           actions = [step["action"] for step in data["steps"]]
 
@@ -65,5 +79,5 @@ jobs:
           assert data["steps"][1]["success"] is True
           assert data["steps"][2]["success"] is True
 
-          print("Trajectory verification passed.")
+          print(f"Trajectory verification passed for {task_id}.")
           PY
