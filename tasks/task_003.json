@@ -1,0 +1,15 @@
+{
+  "task_id": "task_003",
+  "title": "Fix order-preserving deduplication",
+  "description": "Fix the deduplicate function so that it removes duplicate items while preserving their original input order.",
+  "workspace": "workspace",
+  "target_file": "deduplicate.py",
+  "test_command": [
+    "python",
+    "-m",
+    "pytest",
+    "test_deduplicate.py",
+    "-q"
+  ],
+  "max_iterations": 3
+}

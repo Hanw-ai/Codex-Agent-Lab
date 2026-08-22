@@ -16,9 +16,14 @@ jobs:
           - task_id: task_001
             task_file: tasks/task_001.json
             test_file: test_calculator.py
+          
           - task_id: task_002
             task_file: tasks/task_002.json
             test_file: test_username.py
+
+          - task_id: task_003
+            task_file: tasks/task_003.json
+            test_file: test_deduplicate.py
 
     steps:
       - name: Checkout repository
