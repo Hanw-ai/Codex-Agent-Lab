@@ -42,6 +42,7 @@ def main() -> None:
 
     result = agent.solve(
         target_file=task["target_file"],
+        description=task["description"],
         max_iterations=task["max_iterations"],
     )
 

@@ -70,14 +70,18 @@ jobs:
           actions = [step["action"] for step in data["steps"]]
 
           assert actions == [
-              "run_tests_before_repair",
-              "repair_file",
-              "run_tests_after_repair",
+          "inspect_source",
+          "run_tests_before_repair",
+          "generate_repair_plan",
+          "apply_patch",
+          "run_tests_after_repair",
           ]
 
-          assert data["steps"][0]["success"] is False
-          assert data["steps"][1]["success"] is True
+          assert data["steps"][0]["success"] is True
+          assert data["steps"][1]["success"] is False
           assert data["steps"][2]["success"] is True
+          assert data["steps"][3]["success"] is True
+          assert data["steps"][4]["success"] is True
 
           print(f"Trajectory verification passed for {task_id}.")
           PY

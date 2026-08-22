@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent.executor import CommandExecutor
+from agent.planner import RepairContext, RepairPlan, RepairPlanner, RuleBasedPlanner
 from agent.trajectory import TrajectoryLogger
 from agent.workspace import WorkspaceManager
 
@@ -27,10 +28,13 @@ class CodingAgent:
         workspace: str | Path,
         task_id: str = "unknown_task",
         test_command: list[str] | None = None,
+        planner: RepairPlanner | None = None,
     ) -> None:
         self.workspace = WorkspaceManager(workspace)
         self.executor = CommandExecutor(workspace)
+        self.task_id = task_id
         self.trajectory = TrajectoryLogger(task_id)
+        self.planner = planner or RuleBasedPlanner()
         self.test_command = test_command or [
             "python",
             "-m",
@@ -102,6 +106,31 @@ class CodingAgent:
             updated,
         )
 
+    def apply_plan(
+        self,
+        relative_path: str,
+        plan: RepairPlan,
+    ) -> None:
+        """Apply a planner-generated source-code repair."""
+
+        content = self.workspace.read_file(relative_path)
+
+        if plan.old_text not in content:
+            raise ValueError(
+                f"Planner patch target was not found in {relative_path}."
+            )
+
+        updated = content.replace(
+            plan.old_text,
+            plan.new_text,
+            1,
+        )
+
+        self.workspace.write_file(
+            relative_path,
+            updated,
+        )
+
     def repair_file(self, relative_path: str) -> None:
         """Select a repair strategy for the target file."""
 
@@ -117,8 +146,8 @@ class CodingAgent:
             f"No repair strategy available for: {relative_path}"
         )
 
-    def run_tests(self) -> bool:
-        """Run pytest inside the workspace."""
+    def execute_tests(self):
+        """Run the task-specific test command and return the full result."""
 
         result = self.executor.run(
             self.test_command
@@ -129,19 +158,35 @@ class CodingAgent:
         if result.stderr:
             print(result.stderr)
 
-        return result.success
+        return result
+
+    def run_tests(self) -> bool:
+        """Run the task-specific tests and return whether they pass."""
+
+        return self.execute_tests().success
 
     def solve(
-    self,
-    target_file: str,
-    max_iterations: int = 3,
-) -> AgentResult:
-        """Attempt to repair the task until tests pass."""
-    
+        self,
+        target_file: str,
+        description: str = "",
+        max_iterations: int = 3,
+    ) -> AgentResult:
+        """Inspect, plan, repair, and verify a coding task."""
+
         for iteration in range(1, max_iterations + 1):
-    
-            tests_passed = self.run_tests()
-    
+            source_code = self.inspect_file(target_file)
+
+            self.trajectory.add_step(
+                iteration=iteration,
+                action="inspect_source",
+                target_file=target_file,
+                success=True,
+                observation=f"Inspected source file: {target_file}.",
+            )
+
+            test_result = self.execute_tests()
+            tests_passed = test_result.success
+
             self.trajectory.add_step(
                 iteration=iteration,
                 action="run_tests_before_repair",
@@ -153,26 +198,57 @@ class CodingAgent:
                     else "Tests failed before repair."
                 ),
             )
-    
+
             if tests_passed:
                 return AgentResult(
                     success=True,
                     iterations=iteration - 1,
                     message="Tests already pass.",
                 )
-    
-            self.repair_file(target_file)
-    
+
+            test_output = "\n".join(
+                part
+                for part in (
+                    test_result.stdout,
+                    test_result.stderr,
+                )
+                if part
+            )
+
+            context = RepairContext(
+                task_id=self.task_id,
+                description=description,
+                target_file=target_file,
+                source_code=source_code,
+                test_output=test_output,
+            )
+
+            plan = self.planner.plan(context)
+
             self.trajectory.add_step(
                 iteration=iteration,
-                action="repair_file",
+                action="generate_repair_plan",
                 target_file=target_file,
                 success=True,
-                observation=f"Applied repair to {target_file}.",
+                observation=plan.explanation,
             )
-    
-            tests_passed = self.run_tests()
-    
+
+            self.apply_plan(
+                target_file,
+                plan,
+            )
+
+            self.trajectory.add_step(
+                iteration=iteration,
+                action="apply_patch",
+                target_file=target_file,
+                success=True,
+                observation=f"Applied planner patch to {target_file}.",
+            )
+
+            verification_result = self.execute_tests()
+            tests_passed = verification_result.success
+
             self.trajectory.add_step(
                 iteration=iteration,
                 action="run_tests_after_repair",
@@ -184,14 +260,14 @@ class CodingAgent:
                     else "Tests still failed after repair."
                 ),
             )
-    
+
             if tests_passed:
                 return AgentResult(
                     success=True,
                     iterations=iteration,
-                    message="Repair succeeded.",
+                    message="Planner-driven repair succeeded.",
                 )
-    
+
         return AgentResult(
             success=False,
             iterations=max_iterations,
