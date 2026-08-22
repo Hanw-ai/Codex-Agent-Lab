@@ -90,3 +90,26 @@ jobs:
 
           print(f"Trajectory verification passed for {task_id}.")
           PY
+
+      - name: Verify trajectory evaluation
+        env:
+          TASK_ID: ${{ matrix.task_id }}
+        run: |
+          python - <<'PY'
+          import os
+          from agent.evaluation import evaluate_trajectory
+
+          task_id = os.environ["TASK_ID"]
+
+          evaluation = evaluate_trajectory(
+              f"outputs/{task_id}_trajectory.json"
+          )
+
+          assert evaluation.task_id == task_id
+          assert evaluation.success is True
+          assert evaluation.iterations == 1
+          assert evaluation.trajectory_length == 5
+
+          print(f"Evaluation verification passed for {task_id}: {evaluation}")
+          PY
+          
